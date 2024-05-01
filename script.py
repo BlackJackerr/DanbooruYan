@@ -1,72 +1,51 @@
-from flask import Flask, request, send_from_directory, jsonify
-from werkzeug.utils import secure_filename
-import cv2
-import numpy as np
+from flask import Flask, request, jsonify
+from PIL import Image, ImageDraw, ImageFont
+import os
 
-# Inisialisasi Flask
 app = Flask(__name__)
+app.config['STATIC_FOLDER'] = 'static'
 
-# Fungsi untuk memproses meme
-def process_meme(image_path, text1, text2):
-    # Membaca gambar
-    image = cv2.imread(image_path)
+@app.route('/smeme', methods=['POST'])
+def generate_meme():
+    # Mendapatkan teks dan gambar dari request
+    teks1 = request.form.get('teks1')
+    teks2 = request.form.get('teks2')
+    image_file = request.files['image']
 
-    # Mengubah gambar menjadi RGB
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # Memvalidasi teks dan gambar
+    if not teks1 and not teks2:
+        return jsonify({'error': 'Teks atas atau bawah tidak boleh kosong'})
+    if image_file.filename == '':
+        return jsonify({'error': 'Tidak ada gambar yang diunggah'})
 
-    # Menambahkan teks atas
-    if text1:
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_size = 1
-        font_color = (0, 0, 0)  # Hitam
-        text_position = (10, 20)  # Posisi teks atas
-        cv2.putText(image, text1, text_position, font, font_size, font_color, thickness=2)
+    # Menyimpan gambar yang diunggah
+    image_path = os.path.join(app.config['STATIC_FOLDER'], 'images', image_file.filename)
+    image_file.save(image_path)
 
-    # Menambahkan teks bawah
-    if text2:
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_size = 1
-        font_color = (0, 0, 0)  # Hitam
-        text_position = (10, image.shape[0] - 20)  # Posisi teks bawah
-        cv2.putText(image, text2, text_position, font, font_size, font_color, thickness=2)
+    # Membuka gambar dan membuat objek ImageDraw
+    image = Image.open(image_path)
+    draw = ImageDraw.Draw(image)
 
-    # Mengubah gambar kembali ke BGR
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    # Menambahkan font
+    font = ImageFont.truetype('static/fonts/Arial.ttf', 24)
 
-    # Mengembalikan gambar yang telah diproses
-    return image
+    # Menambahkan teks atas (jika ada)
+    if teks1:
+        text_width, text_height = draw.textsize(teks1, font=font)
+        draw.text((image.width - text_width // 2, 10), teks1, fill='black', font=font)
 
-@app.route("/")
-def runhome():
-	return "Created By Yan"
+    # Menambahkan teks bawah (jika ada)
+    if teks2:
+        text_width, text_height = draw.textsize(teks2, font=font)
+        draw.text((image.width - text_width // 2, image.height - text_height - 10), teks2, fill='black', font=font)
 
-# Route untuk upload gambar
-@app.route("/smeme", methods=["POST"])
-def create_meme():
-    # Membaca file gambar
-    image_file = request.files["image"]
-    if image_file:
-        # Menyimpan gambar dengan nama aman
-        image_filename = secure_filename(image_file.filename)
-        image_path = os.path.join("uploads", image_filename)
-        image_file.save(image_path)
+    # Menyimpan gambar yang sudah dimodifikasi
+    modified_image_path = os.path.join(app.config['STATIC_FOLDER'], 'images', 'meme.jpg')
+    image.save(modified_image_path)
 
-        # Membaca teks atas dan bawah
-        text1 = request.form.get("teks1")
-        text2 = request.form.get("teks2")
+    # Mengembalikan URL gambar yang sudah dimodifikasi
+    return jsonify({'meme_url': f'/static/images/meme.jpg'})
 
-        # Memproses meme
-        processed_image = process_meme(image_path, text1, text2)
-
-        # Mengubah gambar menjadi format PNG
-        _, encoded_image = cv2.imencode(".png", processed_image)
-
-        # Mengembalikan respon
-        return send_from_directory("uploads", image_filename, mimetype="image/png")
-    else:
-        return jsonify({"message": "Tidak ada gambar yang diupload"})
-
-# Menjalankan API
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(host="0.0.0.0")
-	    
+	
