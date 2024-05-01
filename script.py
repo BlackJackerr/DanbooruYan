@@ -36,6 +36,10 @@ def process_meme(image_path, text1, text2):
     # Mengembalikan gambar yang telah diproses
     return image
 
+@app.route("/")
+def runhome():
+	return "Created By Yan"
+
 # Route untuk upload gambar
 @app.route("/smeme", methods=["POST"])
 def create_meme():
@@ -64,5 +68,5 @@ def create_meme():
 
 # Menjalankan API
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0")
 	    
